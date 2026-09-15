@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Smart Shopping Adventure</title>
+<style>
+  :root{
+    --ink:#0b1733; --panel:#10294e; --panel2:#173c68; --line:#7fd9ff;
+    --paper:#f7fbff; --gold:#ffd45a; --green:#43d19e; --red:#ff6d7a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#071326;color:white;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden}
+  button{font:inherit}
+  #wrap{height:100%;display:grid;grid-template-rows:auto 1fr}
+  #hud{
+    min-height:76px;display:grid;grid-template-columns:minmax(250px,1.6fr) repeat(3,minmax(95px,.42fr));
+    gap:10px;padding:10px 12px;background:linear-gradient(180deg,#0e2e55,#0b2443);
+    border-bottom:2px solid #24557f;box-shadow:0 6px 24px rgba(0,0,0,.28);z-index:20
+  }
+  .hudCard{
+    border:1px solid #3b77a5;background:linear-gradient(180deg,rgba(20,66,106,.96),rgba(12,38,70,.96));
+    border-radius:15px;padding:8px 12px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 6px 16px rgba(0,0,0,.15)
+  }
+  #task{display:flex;gap:10px;align-items:center}
+  #parentAvatar{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#e9c7a8;color:#16233d;border:3px solid white;font-size:26px}
+  #taskText{font-weight:800;font-size:clamp(13px,1.8vw,19px);line-height:1.18}
+  .tiny{font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:.08em}
+  .metric{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:900;font-size:18px}
+  .metric strong{font-size:22px}
+  #gameShell{position:relative;min-height:0}
+  canvas{width:100%;height:100%;display:block;background:#87c9f3;touch-action:none}
+  #overlay, #quiz, #cartPanel, #endPanel, #helpPanel{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(4,12,28,.72);backdrop-filter:blur(6px);z-index:40
+  }
+  .modal{
+    width:min(720px,94vw);max-height:88vh;overflow:auto;border:2px solid #539bd0;border-radius:24px;
+    background:linear-gradient(180deg,#12385f,#0b2341);box-shadow:0 30px 70px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.06);padding:24px
+  }
+  .modal h1,.modal h2{margin:.1em 0 .45em}
+  .modal p{line-height:1.5;color:#d9efff}
+  .primary,.secondary,.danger{
+    border:0;border-radius:12px;padding:12px 18px;font-weight:900;cursor:pointer;margin:4px;
+    box-shadow:0 5px 0 rgba(0,0,0,.22)
+  }
+  .primary{background:#48d59f;color:#07271e}
+  .secondary{background:#7ecbff;color:#08243c}
+  .danger{background:#ff7a83;color:#3b0c10}
+  .choice{display:block;width:100%;text-align:left;margin:10px 0;padding:15px 16px;border-radius:14px;border:2px solid #3975a1;background:#102d50;color:white;font-weight:800;cursor:pointer}
+  .choice:hover{background:#17456f}
+  #toast{
+    position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(5,18,34,.95);border:1px solid #6dcfff;border-radius:14px;
+    padding:10px 16px;font-weight:800;opacity:0;pointer-events:none;transition:.2s;z-index:35;max-width:min(88vw,700px);text-align:center
+  }
+  #toast.show{opacity:1}
+  #controls{
+    position:absolute;inset:auto 0 10px 0;display:flex;justify-content:space-between;align-items:flex-end;padding:0 12px;z-index:30;pointer-events:none
+  }
+  .pad,.actions{display:flex;gap:8px;pointer-events:auto}
+  .ctrl{
+    width:62px;height:62px;border-radius:18px;border:1px solid rgba(255,255,255,.3);background:rgba(8,29,52,.78);color:white;
+    font-weight:1000;font-size:22px;box-shadow:0 7px 20px rgba(0,0,0,.25);touch-action:none
+  }
+  .ctrl.small{width:auto;min-width:88px;padding:0 14px;font-size:14px}
+  #desktopHint{position:absolute;right:14px;top:12px;z-index:15;background:rgba(4,20,38,.7);border:1px solid rgba(255,255,255,.24);border-radius:10px;padding:7px 10px;font-size:12px}
+  #cartList{display:grid;gap:8px;margin:10px 0 16px}
+  .cartRow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px;background:#0d2b4d;border-radius:12px}
+  .tag{display:inline-block;border-radius:999px;padding:4px 9px;background:#224d75;font-size:12px;font-weight:800}
+  .scoreGrid{display:grid;grid-template-columns:1fr auto;gap:8px 16px;background:#0b2b4a;border-radius:16px;padding:16px;margin:16px 0}
+  .scoreGrid strong{text-align:right}
+  .stars{font-size:40px;letter-spacing:5px;color:var(--gold);text-align:center}
+  #missionOptions{display:grid;gap:10px}
+  #startCard{display:block}
+  @media (max-width:760px){
+    #hud{grid-template-columns:1fr 1fr 1fr;min-height:112px}
+    #task{grid-column:1/-1}
+    #parentAvatar{width:40px;height:40px}
+    .hudCard{padding:7px 9px}
+    .metric{font-size:14px}.metric strong{font-size:17px}
+    #desktopHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div id="task" class="hudCard">
+      <div id="parentAvatar">👩</div>
+      <div><div class="tiny">Parent Task</div><div id="taskText">Choose a mission to begin.</div></div>
+    </div>
+    <div class="hudCard metric">💵 <strong id="budgetHUD">$0.00</strong></div>
+    <div class="hudCard metric">🛒 <strong id="cartHUD">0</strong></div>
+    <div class="hudCard metric">⭐ <strong id="scoreHUD">0</strong></div>
+  </div>
+
+  <div id="gameShell">
+    <canvas id="game" width="1400" height="760" aria-label="Smart Shopping Adventure game"></canvas>
+    <div id="desktopHint">Move: ← → / A D &nbsp; • &nbsp; Interact: E / Space &nbsp; • &nbsp; Cart: C</div>
+    <div id="toast"></div>
+
+    <div id="controls">
+      <div class="pad">
+        <button class="ctrl" id="leftBtn" aria-label="Move left">◀</button>
+        <button class="ctrl" id="rightBtn" aria-label="Move right">▶</button>
+      </div>
+      <div class="actions">
+        <button class="ctrl small" id="cartBtn">🛒 Cart</button>
+        <button class="ctrl small" id="actionBtn">E • Interact</button>
+      </div>
+    </div>
+
+    <div id="overlay" style="display:flex">
+      <div class="modal" id="startCard">
+        <div class="tiny">LSC Math • Smart Shopping & Budgeting</div>
+        <h1>Smart Shopping Adventure</h1>
+        <p>Your parent has a real-life shopping job for you. Leave the house, walk through the neighborhood, enter QuickMart, read the price tags, choose the right items, stay under budget, and check out.</p>
+        <p><b>Goal:</b> complete the task with the fewest mistakes and the most money left over.</p>
+        <div id="missionOptions"></div>
+        <p style="font-size:13px;opacity:.78;margin-top:16px">Works with keyboard, mouse, Chromebook, and touch controls. No student name or login is required.</p>
+      </div>
+    </div>
+
+    <div id="quiz">
+      <div class="modal">
+        <div class="tiny">Price Check</div>
+        <h2 id="quizTitle">Read the price tag</h2>
+        <p id="quizText"></p>
+        <div id="quizChoices"></div>
+      </div>
+    </div>
+
+    <div id="cartPanel">
+      <div class="modal">
+        <div class="tiny">Shopping Cart</div>
+        <h2>Your Cart</h2>
+        <div id="cartList"></div>
+        <div class="scoreGrid">
+          <span>Cart total</span><strong id="cartTotal">$0.00</strong>
+          <span>Budget</span><strong id="cartBudget">$0.00</strong>
+          <span>Money left</span><strong id="cartLeft">$0.00</strong>
+        </div>
+        <button class="secondary" onclick="closeCart()">Keep Shopping</button>
+        <button class="primary" id="checkoutBtn" onclick="checkout()">Check Out</button>
+      </div>
+    </div>
+
+    <div id="endPanel">
+      <div class="modal">
+        <div class="tiny">Trip Complete</div>
+        <h1 id="endTitle">Nice work!</h1>
+        <div class="stars" id="endStars">★★★</div>
+        <p id="endMessage"></p>
+        <div class="scoreGrid" id="scoreBreakdown"></div>
+        <button class="primary" onclick="restartGame()">Play Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+  const missions = [
+    {id:'snacks', text:'Walk to the store and buy 2 snacks for under $10.', budget:10, needs:{snack:2}},
+    {id:'drinkSnack', text:'Pick up 1 drink and 1 snack for under $8.', budget:8, needs:{drink:1,snack:1}},
+    {id:'movie', text:'Get 2 snacks and 1 drink for movie night for under $15.', budget:15, needs:{snack:2,drink:1}},
+    {id:'phone', text:'Buy 1 phone case and 1 snack for under $15.', budget:15, needs:{tech:1,snack:1}}
+  ];
+
+  const products = [
+    {name:'Pretzels',cat:'snack',price:2.49,x:1540,shelf:0,icon:'🥨'},
+    {name:'Potato Chips',cat:'snack',price:3.29,x:1630,shelf:0,icon:'🥔'},
+    {name:'Granola Bar',cat:'snack',price:1.79,x:1720,shelf:0,icon:'🍫'},
+    {name:'Trail Mix',cat:'snack',price:4.19,x:1810,shelf:0,icon:'🥜'},
+    {name:'Fruit Snacks',cat:'snack',price:2.99,x:1900,shelf:0,icon:'🍓'},
+    {name:'Water',cat:'drink',price:1.49,x:1570,shelf:1,icon:'💧'},
+    {name:'Sports Drink',cat:'drink',price:2.79,x:1680,shelf:1,icon:'🥤'},
+    {name:'Iced Tea',cat:'drink',price:2.39,x:1790,shelf:1,icon:'🧋'},
+    {name:'Juice',cat:'drink',price:3.09,x:1900,shelf:1,icon:'🧃'},
+    {name:'Phone Case',cat:'tech',price:9.99,x:2070,shelf:0,icon:'📱'},
+    {name:'Earbuds',cat:'tech',price:24.99,x:2180,shelf:0,icon:'🎧'},
+    {name:'T-Shirt',cat:'apparel',price:14.99,x:2070,shelf:1,icon:'👕'},
+    {name:'Hoodie',cat:'apparel',price:27.50,x:2180,shelf:1,icon:'🧥'},
+    {name:'Notebook',cat:'everyday',price:3.49,x:2320,shelf:0,icon:'📓'},
+    {name:'Toothpaste',cat:'everyday',price:4.29,x:2430,shelf:0,icon:'🪥'}
+  ];
+
+  let state = {
+    scene:'outside', mission:null, x:130, y:0, vx:0, score:0, cart:[],
+    priceCorrect:0, priceWrong:0, started:false, checkoutDone:false
+  };
+  const keys = {};
+  let last = performance.now();
+  let cameraX = 0;
+  let toastTimer = 0;
+  let quizProduct = null;
+
+  function money(n){ return '$' + n.toFixed(2); }
+  function cartTotal(){ return state.cart.reduce((s,p)=>s+p.price,0); }
+  function itemCounts(){
+    const c={snack:0,drink:0,tech:0,apparel:0,everyday:0};
+    state.cart.forEach(p=>c[p.cat]=(c[p.cat]||0)+1); return c;
+  }
+  function missionSatisfied(){
+    if(!state.mission) return false;
+    const c=itemCounts();
+    return Object.entries(state.mission.needs).every(([k,v]) => (c[k]||0)>=v) && cartTotal() <= state.mission.budget;
+  }
+  function extraItems(){
+    if(!state.mission) return 0;
+    const needTotal=Object.values(state.mission.needs).reduce((a,b)=>a+b,0);
+    return Math.max(0,state.cart.length-needTotal);
+  }
+  function updateHUD(){
+    document.getElementById('taskText').textContent = state.mission ? state.mission.text : 'Choose a mission to begin.';
+    document.getElementById('budgetHUD').textContent = state.mission ? money(Math.max(0,state.mission.budget-cartTotal())) : '$0.00';
+    document.getElementById('cartHUD').textContent = state.cart.length;
+    document.getElementById('scoreHUD').textContent = state.score;
+  }
+  function toast(msg){
+    const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),1900);
+  }
+
+  function chooseMission(i){
+    state.mission = missions[i];
+    state.started=true; state.scene='outside'; state.x=130; state.score=0; state.cart=[];
+    state.priceCorrect=0; state.priceWrong=0; state.checkoutDone=false;
+    document.getElementById('overlay').style.display='none';
+    updateHUD();
+    toast('Parent: “' + state.mission.text + '”');
+  }
+
+  function buildMissionButtons(){
+    const box=document.getElementById('missionOptions'); box.innerHTML='';
+    missions.forEach((m,i)=>{
+      const b=document.createElement('button');
+      b.className='choice';
+      b.innerHTML='<span class="tag">Mission '+(i+1)+'</span><br><span style="font-size:17px">'+m.text+'</span>';
+      b.onclick=()=>chooseMission(i); box.appendChild(b);
+    });
+  }
+  buildMissionButtons();
+
+  // ---------- Drawing helpers ----------
+  function rr(x,y,w,h,r,fill,stroke){
+    ctx.beginPath(); ctx.roundRect(x,y,w,h,r);
+    if(fill){ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+  }
+  function text(t,x,y,size=18,color='#fff',align='left',weight=700){
+    ctx.fillStyle=color;ctx.font=`${weight} ${size}px Inter,Arial,sans-serif`;ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillText(t,x,y);
+  }
+  function tree(x,y,s=1){
+    ctx.fillStyle='#5b3922';ctx.fillRect(x-9*s,y,18*s,85*s);
+    for(const [dx,dy,r,c] of [[0,-30,38,'#327f4f'],[-28,-12,30,'#4f9a59'],[28,-10,31,'#3d8b4d'],[4,8,32,'#579f5c']]){
+      ctx.beginPath();ctx.arc(x+dx*s,y+dy*s,r*s,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
+    }
+  }
+  function house(x,y){
+    ctx.fillStyle='#e5e1d9';ctx.fillRect(x,y,330,220);
+    ctx.fillStyle='#263d58';ctx.beginPath();ctx.moveTo(x-25,y);ctx.lineTo(x+165,y-115);ctx.lineTo(x+355,y);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#9b593a';ctx.fillRect(x+60,y+85,72,135);
+    ctx.fillStyle='#21466c';for(let i=0;i<2;i++){ctx.fillRect(x+185+i*80,y+60,52,55)}
+    ctx.fillStyle='#fff7dd';ctx.fillRect(x+192,y+67,38,41);ctx.fillRect(x+272,y+67,38,41);
+    rr(x+10,y+150,115,28,6,'#f9f4e8');text('128 MAPLE',x+68,y+164,13,'#20364f','center',900);
+  }
+  function roadDetail(off){
+    for(let i=0;i<10;i++){
+      const x=i*250-off%250;
+      ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(x,610,115,7);
+    }
+  }
+  function storeFront(x,y){
+    ctx.fillStyle='#6f3b2c';ctx.fillRect(x,y,550,315);
+    rr(x+18,y+18,514,92,10,'#123d69');
+    text('🛒 QuickMart',x+275,y+61,37,'#fff','center',900);
+    text('SNACKS  •  DRINKS  •  TECH  •  APPAREL',x+275,y+91,14,'#ffd766','center',800);
+    ctx.fillStyle='#b9e5f4';ctx.fillRect(x+28,y+125,245,160);ctx.fillRect(x+292,y+125,230,160);
+    ctx.fillStyle='#153d5d';for(let i=0;i<6;i++)ctx.fillRect(x+40+i*38,y+205,28,70);
+    ctx.fillStyle='#20344e';ctx.fillRect(x+250,y+120,70,195);
+    rr(x+345,y+146,145,58,7,'#f8f4e8','#233');text('SNACKS $1.79+',x+418,y+175,17,'#b02626','center',900);
+    rr(x+52,y+145,165,58,7,'#f8f4e8','#233');text('DRINKS $1.49+',x+134,y+175,16,'#1d5ba1','center',900);
+    rr(x+362,y+225,120,44,6,'#fff7d4');text('OPEN',x+422,y+247,18,'#167a49','center',1000);
+  }
+  function drawOutside(){
+    const off = cameraX;
+    const sky=ctx.createLinearGradient(0,0,0,500);sky.addColorStop(0,'#5bb7eb');sky.addColorStop(1,'#bfe5f9');ctx.fillStyle=sky;ctx.fillRect(0,0,canvas.width,canvas.height);
+    // skyline
+    ctx.fillStyle='rgba(76,118,154,.38)';
+    for(let i=0;i<9;i++){let x=850+i*90-off*.18;ctx.fillRect(x,210-(i%3)*50,58,190+(i%3)*50)}
+    // hills
+    ctx.fillStyle='#6ea86b';ctx.beginPath();ctx.moveTo(0,420);for(let x=0;x<=canvas.width;x+=90)ctx.lineTo(x,390+Math.sin((x+off*.2)/180)*25);ctx.lineTo(canvas.width,560);ctx.lineTo(0,560);ctx.fill();
+    // neighborhood
+    house(80-off,300); house(560-off,325);
+    tree(455-off,340,1.1);tree(1030-off,350,.95);
+    // sidewalk/road
+    ctx.fillStyle='#d9d4c9';ctx.fillRect(0,530,canvas.width,82);
+    ctx.fillStyle='#4d5660';ctx.fillRect(0,612,canvas.width,150);roadDetail(off);
+    // signs and bus stop
+    ctx.fillStyle='#31434f';ctx.fillRect(1080-off,355,8,175);rr(1020-off,338,135,55,7,'#2b7e71');text('MAPLE ST →',1088-off,366,17,'#fff','center',900);
+    ctx.fillStyle='#566674';ctx.fillRect(1295-off,410,9,120);rr(1240-off,386,120,46,7,'#efefef');text('BUS STOP',1300-off,409,14,'#24374b','center',900);
+    storeFront(1500-off,245);
+    // store entry glow
+    if(Math.abs(state.x-1810)<130){rr(1715-off,530,190,10,6,'rgba(255,222,104,.85)');text('Press E to enter',1810-off,513,15,'#102b44','center',900)}
+    // lamp posts
+    [760,1180,1450].forEach(px=>{ctx.fillStyle='#344b5f';ctx.fillRect(px-off,332,7,198);ctx.beginPath();ctx.arc(px+3-off,336,16,0,Math.PI*2);ctx.fillStyle='#ffe694';ctx.fill();});
+    drawPlayer(state.x-off,505);
+  }
+  function shelf(x,y,w,label,accent){
+    rr(x,y,w,180,10,'#7d5c43','#513b2d');
+    ctx.fillStyle='#5c432f';ctx.fillRect(x+8,y+55,w-16,8);ctx.fillRect(x+8,y+120,w-16,8);
+    rr(x+10,y-34,w-20,28,7,accent);text(label,x+w/2,y-20,14,'#fff','center',900);
+  }
+  function storeInterior(){
+    const off=cameraX;
+    ctx.fillStyle='#eadfcf';ctx.fillRect(0,0,canvas.width,canvas.height);
+    // ceiling
+    ctx.fillStyle='#26384a';ctx.fillRect(0,0,canvas.width,110);
+    for(let x=100;x<canvas.width;x+=250){ctx.fillStyle='#f8f4d8';ctx.fillRect(x,46,130,14)}
+    // back wall
+    ctx.fillStyle='#d3e4e7';ctx.fillRect(0,110,canvas.width,170);
+    text('QUICKMART',60-off*.05,156,28,'#173f65','left',1000);
+    text('Read the price tags • Stay under budget • Make smart choices',60-off*.05,195,17,'#476171','left',700);
+    // tile floor
+    ctx.fillStyle='#c8c2b8';ctx.fillRect(0,280,canvas.width,480);
+    ctx.strokeStyle='rgba(80,80,80,.16)';ctx.lineWidth=1;
+    for(let y=330;y<760;y+=55){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke()}
+    for(let x=0;x<canvas.width;x+=70){ctx.beginPath();ctx.moveTo(x,280);ctx.lineTo(x,760);ctx.stroke()}
+    // world scroll items
+    const sx=(wx)=>wx-off;
+    // shelves
+    shelf(sx(1460),315,520,'SNACKS & DRINKS','#b04c3b');
+    shelf(sx(2020),315,300,'TECH & APPAREL','#2e6da0');
+    shelf(sx(2290),315,280,'EVERYDAY NEEDS','#4c8b66');
+    // products
+    products.forEach(p=>{
+      const px=sx(p.x), py=p.shelf===0?355:430;
+      if(px<-80||px>canvas.width+80)return;
+      ctx.font='30px serif';ctx.textAlign='center';ctx.fillText(p.icon,px,py);
+      rr(px-42,py+22,84,34,6,'#fffdf3','#334');
+      text(money(p.price),px,py+39,15,'#172231','center',900);
+      text(p.name,px,py+68,11,'#2b3340','center',800);
+    });
+    // refrigerated cases
+    for(let i=0;i<4;i++){const x=sx(950+i*120);rr(x,302,100,230,7,'#8fc3d6','#30556d');ctx.fillStyle='rgba(255,255,255,.45)';ctx.fillRect(x+10,316,80,175);text(['MILK','JUICE','WATER','SODA'][i],x+50,512,12,'#163a52','center',900)}
+    // checkout
+    const cx=sx(2670);rr(cx,350,330,150,12,'#274c68');rr(cx+30,305,135,52,8,'#0d2d49');text('CHECKOUT',cx+97,331,17,'#fff','center',900);
+    ctx.fillStyle='#95a2a8';ctx.fillRect(cx+190,325,75,52);text('🧾',cx+227,351,27,'#fff','center',700);
+    rr(cx+45,390,130,55,9,'#f5f6f0');text('PAY HERE',cx+110,417,16,'#21364b','center',1000);
+    if(Math.abs(state.x-2800)<150){rr(cx+68,535,190,10,6,'rgba(70,202,154,.9)');text('Press E to check out',cx+163,518,15,'#102b44','center',900)}
+    // entrance exit
+    const ex=sx(820);rr(ex,300,120,230,5,'#315774');ctx.fillStyle='#b8e8f3';ctx.fillRect(ex+10,312,100,205);text('EXIT',ex+60,290,13,'#183b56','center',900);
+    if(Math.abs(state.x-875)<120){text('Press E to leave',ex+60,548,14,'#183b56','center',900)}
+    drawPlayer(state.x-off,512);
+  }
+  function drawPlayer(x,y){
+    // shadow
+    ctx.beginPath();ctx.ellipse(x,y+68,29,8,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.22)';ctx.fill();
+    // legs
+    ctx.fillStyle='#263240';ctx.fillRect(x-17,y+32,13,36);ctx.fillRect(x+5,y+32,13,36);
+    // shoes
+    rr(x-24,y+62,24,9,5,'#e9edf1');rr(x+3,y+62,24,9,5,'#e9edf1');
+    // body
+    rr(x-22,y-13,44,51,13,'#d5dae1');ctx.fillStyle='#304f72';ctx.fillRect(x-27,y-8,10,42);
+    // head
+    ctx.beginPath();ctx.arc(x,y-31,20,0,Math.PI*2);ctx.fillStyle='#d8a77d';ctx.fill();
+    // hair
+    ctx.beginPath();ctx.arc(x-2,y-38,21,Math.PI,Math.PI*2);ctx.fillStyle='#2a211e';ctx.fill();
+    // backpack
+    rr(x-29,y+2,13,28,5,'#224f7a');
+  }
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(state.scene==='outside') drawOutside(); else storeInterior();
+  }
+
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+  function update(dt){
+    if(!state.started) return;
+    const speed=260;
+    let dir=0;if(keys.ArrowLeft||keys.a||keys.A)dir--;if(keys.ArrowRight||keys.d||keys.D)dir++;
+    state.x += dir*speed*dt;
+    if(state.scene==='outside'){
+      state.x=clamp(state.x,80,1910);
+      cameraX=clamp(state.x-420,0,760);
+    }else{
+      state.x=clamp(state.x,835,2920);
+      cameraX=clamp(state.x-500,650,1700);
+    }
+  }
+  function loop(t){
+    const dt=Math.min(.033,(t-last)/1000);last=t;update(dt);draw();requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function nearestProduct(){
+    if(state.scene!=='store')return null;
+    let best=null,d=999;
+    for(const p of products){const dd=Math.abs(p.x-state.x);if(dd<d){d=dd;best=p}}
+    return d<72?best:null;
+  }
+  function interact(){
+    if(!state.started)return;
+    if(state.scene==='outside' && Math.abs(state.x-1810)<135){
+      state.scene='store';state.x=875;cameraX=650;toast('You entered QuickMart. Find the right items and read the prices.');
+      return;
+    }
+    if(state.scene==='store'){
+      if(Math.abs(state.x-875)<120){state.scene='outside';state.x=1810;cameraX=760;toast('Back outside.');return;}
+      if(Math.abs(state.x-2800)<150){openCart(true);return;}
+      const p=nearestProduct(); if(p){openPriceQuiz(p);return;}
+      toast('Move closer to a product, the exit, or checkout.');
+    } else toast('Walk to QuickMart and press E at the entrance.');
+  }
+
+  function openPriceQuiz(p){
+    quizProduct=p;
+    document.getElementById('quizTitle').textContent=p.icon+' '+p.name;
+    document.getElementById('quizText').textContent='Look at the price tag on the shelf. What is the price of this item?';
+    const wrongChoices=[
+      Math.max(.49,p.price+1), Math.max(.49,p.price-.5), p.price+2, Math.max(.49,p.price-1)
+    ].map(v=>Math.round(v*100)/100).filter(v=>Math.abs(v-p.price)>.001);
+    const wrong=wrongChoices[Math.floor(Math.random()*wrongChoices.length)];
+    let opts=[p.price,wrong]; if(Math.random()>.5)opts.reverse();
+    const box=document.getElementById('quizChoices');box.innerHTML='';
+    opts.forEach(v=>{
+      const b=document.createElement('button');b.className='choice';b.textContent=money(v);
+      b.onclick=()=>answerPrice(v===p.price);box.appendChild(b);
+    });
+    document.getElementById('quiz').style.display='flex';
+  }
+  function answerPrice(ok){
+    document.getElementById('quiz').style.display='none';
+    if(ok){state.score+=15;state.priceCorrect++;toast('Correct price! +15 points');setTimeout(()=>offerAdd(quizProduct),300)}
+    else{state.priceWrong++;state.score=Math.max(0,state.score-5);toast('Not quite. Re-check the shelf tag. −5 points');}
+    updateHUD();
+  }
+  function offerAdd(p){
+    const already=state.cart.find(x=>x===p);
+    if(already){toast(p.name+' is already in your cart.');return}
+    const total=cartTotal()+p.price;
+    const under = !state.mission || total<=state.mission.budget;
+    const quiz=document.getElementById('quiz');
+    document.getElementById('quizTitle').textContent='Add to cart?';
+    document.getElementById('quizText').innerHTML=`${p.icon} <b>${p.name}</b> costs <b>${money(p.price)}</b>.<br>Your new total would be <b>${money(total)}</b>. ${under?'That is within your budget.':'That would put you over budget.'}`;
+    const box=document.getElementById('quizChoices');box.innerHTML='';
+    const add=document.createElement('button');add.className='choice';add.textContent='🛒 Add '+p.name+' — '+money(p.price);
+    add.onclick=()=>{state.cart.push(p);quiz.style.display='none';state.score+=5;updateHUD();toast('Added to cart. +5 points');};
+    const no=document.createElement('button');no.className='choice';no.textContent='Keep shopping';
+    no.onclick=()=>quiz.style.display='none';
+    box.append(add,no);quiz.style.display='flex';
+  }
+
+  function openCart(fromCheckout=false){
+    const panel=document.getElementById('cartPanel'), list=document.getElementById('cartList');list.innerHTML='';
+    if(!state.cart.length){list.innerHTML='<p>Your cart is empty.</p>'}
+    state.cart.forEach((p,i)=>{
+      const row=document.createElement('div');row.className='cartRow';
+      row.innerHTML=`<div><b>${p.icon} ${p.name}</b><div class="tiny">${p.cat}</div></div><strong>${money(p.price)}</strong>`;
+      const rm=document.createElement('button');rm.className='danger';rm.textContent='Remove';rm.onclick=()=>{state.cart.splice(i,1);updateHUD();openCart(fromCheckout)};
+      row.appendChild(rm);list.appendChild(row);
+    });
+    const total=cartTotal(),budget=state.mission?state.mission.budget:0;
+    document.getElementById('cartTotal').textContent=money(total);
+    document.getElementById('cartBudget').textContent=money(budget);
+    document.getElementById('cartLeft').textContent=money(budget-total);
+    document.getElementById('cartLeft').style.color=budget-total>=0?'#66e4af':'#ff8791';
+    document.getElementById('checkoutBtn').style.display=fromCheckout?'inline-block':'none';
+    panel.style.display='flex';
+  }
+  window.closeCart=()=>document.getElementById('cartPanel').style.display='none';
+  window.checkout=()=>{
+    if(!state.mission)return;
+    if(!state.cart.length){toast('Your cart is empty.');return}
+    closeCart();
+    const total=cartTotal(), counts=itemCounts();
+    const needsMet=Object.entries(state.mission.needs).every(([k,v])=>(counts[k]||0)>=v);
+    const under=total<=state.mission.budget;
+    let bonus=0;
+    if(needsMet)bonus+=100;
+    if(under)bonus+=100;
+    if(needsMet&&under&&extraItems()===0)bonus+=50;
+    bonus+=Math.max(0,Math.round((state.mission.budget-total)*5));
+    state.score+=bonus;
+    finish(needsMet,under,total,bonus);
+  }
+  function finish(needsMet,under,total,bonus){
+    const perfect=needsMet&&under&&extraItems()===0&&state.priceWrong===0;
+    let stars=perfect?3:(needsMet&&under?2:1);
+    document.getElementById('endStars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
+    document.getElementById('endTitle').textContent=perfect?'Smart Shopper!':(needsMet&&under?'Mission Complete!':'Almost there!');
+    let msg = needsMet&&under
+      ? `You completed the parent task and spent ${money(total)} of your ${money(state.mission.budget)} budget.`
+      : `You checked out, but ${!needsMet?'the cart did not match the task':'the total was over budget'}. Try again and make a smarter plan.`;
+    document.getElementById('endMessage').textContent=msg;
+    const rows=[
+      ['Task requirements',needsMet?'+100 pts':'0 pts'],
+      ['Stayed under budget',under?'+100 pts':'0 pts'],
+      ['No unnecessary items',extraItems()===0?'+50 pts':'0 pts'],
+      ['Correct price checks',state.priceCorrect+' correct'],
+      ['Price mistakes',state.priceWrong],
+      ['Money left',money(state.mission.budget-total)],
+      ['Final score',state.score+' pts']
+    ];
+    const grid=document.getElementById('scoreBreakdown');grid.innerHTML='';
+    rows.forEach(([a,b])=>{const s=document.createElement('span');s.textContent=a;const st=document.createElement('strong');st.textContent=b;grid.append(s,st)});
+    document.getElementById('endPanel').style.display='flex';
+  }
+  window.restartGame=()=>{
+    document.getElementById('endPanel').style.display='none';
+    state={scene:'outside',mission:null,x:130,y:0,vx:0,score:0,cart:[],priceCorrect:0,priceWrong:0,started:false,checkoutDone:false};
+    cameraX=0;updateHUD();buildMissionButtons();document.getElementById('overlay').style.display='flex';
+  }
+
+  // input
+  window.addEventListener('keydown',e=>{
+    keys[e.key]=true;
+    if(['ArrowLeft','ArrowRight',' ','e','E','c','C'].includes(e.key))e.preventDefault();
+    if(e.key==='e'||e.key==='E'||e.key===' ')interact();
+    if(e.key==='c'||e.key==='C')openCart(false);
+  });
+  window.addEventListener('keyup',e=>keys[e.key]=false);
+
+  function holdButton(id,key){
+    const b=document.getElementById(id);
+    const on=e=>{e.preventDefault();keys[key]=true},off=e=>{e.preventDefault();keys[key]=false};
+    ['pointerdown','touchstart'].forEach(ev=>b.addEventListener(ev,on,{passive:false}));
+    ['pointerup','pointercancel','pointerleave','touchend'].forEach(ev=>b.addEventListener(ev,off,{passive:false}));
+  }
+  holdButton('leftBtn','ArrowLeft');holdButton('rightBtn','ArrowRight');
+  document.getElementById('actionBtn').onclick=interact;
+  document.getElementById('cartBtn').onclick=()=>openCart(false);
+
+  // responsive backing resolution
+  function resize(){
+    const r=canvas.getBoundingClientRect();
+    canvas.width=Math.max(900,Math.round(r.width*DPR));
+    canvas.height=Math.max(520,Math.round(r.height*DPR));
+    ctx.setTransform(1,0,0,1,0,0);
+    // drawing uses current pixels, so keep minimum visual scale coherent
+    if(canvas.width<1100)canvas.width=1100;
+  }
+  // Do not use DPR scaling here because game world uses fixed-pixel coordinates.
+  // Canvas CSS stretches cleanly and keeps interaction math simple.
+  updateHUD();
+})();
+</script>
+</body>
+</html>
